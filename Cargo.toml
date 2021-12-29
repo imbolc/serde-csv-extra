@@ -1,0 +1,15 @@
+[package]
+description = "Csv-related serde addons"
+edition = "2021"
+license = "MIT"
+name = "serde-csv-extra"
+repository = "https://github.com/imbolc/serde-csv-extra"
+version = "0.1.0"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+csv = "1"
+rusty-hook = "0.11"
+serde_json = "1.0"
