@@ -11,6 +11,8 @@
 //!    matrix: Vec<Vec<i32>>,
 //!    #[serde(with = "serde_csv_extra::maybe_image_size")]
 //!    image_size: Option<(u8, u16)>,
+//!    #[serde(with = "serde_csv_extra::maybe_lat_lon")]
+//!    geo: Option<(f32, f32)>,
 //! }
 //!
 //! let mut wtr = csv::WriterBuilder::new().has_headers(false).from_writer(Vec::new());
@@ -19,6 +21,7 @@
 //!         list: vec![-1, 1],
 //!         matrix: vec![vec![-1, 1], vec![1, -1]],
 //!         image_size: Some((16, 1024)),
+//!         geo: Some((84.99, -135.00)),
 //!     }
 //! ).unwrap();
 //! wtr.serialize(
@@ -26,10 +29,11 @@
 //!         list: vec![],
 //!         matrix: vec![],
 //!         image_size: None,
+//!         geo: None,
 //!     }
 //! ).unwrap();
 //! let s = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
-//! assert_eq!(s, "-1_1,-1_1|1_-1,16x1024\n,,\n");
+//! assert_eq!(s, "-1_1,-1_1|1_-1,16x1024,84.99;-135\n,,,\n");
 //! ```
 
 #![warn(clippy::all, missing_docs, nonstandard_style, future_incompatible)]
@@ -162,6 +166,46 @@ pub mod maybe_image_size {
     }
 }
 
+/// `Some((84.99, -135.00))` <--> `84.99;-135.00`
+pub mod maybe_lat_lon {
+    use serde::{self, de::Error, Deserialize, Deserializer, Serializer};
+    use std::{fmt::Display, str::FromStr};
+
+    /// Serializer
+    pub fn serialize<S, T>(size: &Option<(T, T)>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Display,
+    {
+        if let Some(size) = size {
+            let s = format!("{};{}", size.0, size.1);
+            serializer.serialize_str(&s)
+        } else {
+            serializer.serialize_str("")
+        }
+    }
+
+    /// Deserializer
+    pub fn deserialize<'de, D, T>(deserializer: D) -> Result<Option<(T, T)>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: FromStr + Display,
+        <T as FromStr>::Err: Display,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s.is_empty() {
+            return Ok(None);
+        }
+        let (lat, lon) = s
+            .split_once(";")
+            .ok_or_else(|| Error::custom("bad image size format"))?;
+        Ok(Some((
+            lat.parse().map_err(Error::custom)?,
+            lon.parse().map_err(Error::custom)?,
+        )))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -222,6 +266,30 @@ mod tests {
 
         let foo = Foo(Some((1, 2)));
         let foo_str = "\"1x2\"";
+
+        let serialized = serde_json::to_string(&foo).unwrap();
+        assert_eq!(serialized, foo_str);
+
+        let deserialized: Foo = serde_json::from_str(foo_str).unwrap();
+        assert_eq!(deserialized, foo);
+
+        let empty = Foo(None);
+        let empty_str = "\"\"";
+
+        let serialized = serde_json::to_string(&empty).unwrap();
+        assert_eq!(serialized, empty_str);
+
+        let deserialized: Foo = serde_json::from_str(empty_str).unwrap();
+        assert_eq!(deserialized, empty);
+    }
+
+    #[test]
+    fn geo() {
+        #[derive(Debug, Deserialize, Serialize, PartialEq)]
+        struct Foo(#[serde(with = "maybe_lat_lon")] Option<(f32, f32)>);
+
+        let foo = Foo(Some((-1.1, 1.1)));
+        let foo_str = "\"-1.1;1.1\"";
 
         let serialized = serde_json::to_string(&foo).unwrap();
         assert_eq!(serialized, foo_str);

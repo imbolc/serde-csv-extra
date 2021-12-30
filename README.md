@@ -17,6 +17,8 @@ struct Foo {
    matrix: Vec<Vec<i32>>,
    #[serde(with = "serde_csv_extra::maybe_image_size")]
    image_size: Option<(u8, u16)>,
+   #[serde(with = "serde_csv_extra::maybe_lat_lon")]
+   geo: Option<(f32, f32)>,
 }
 
 let mut wtr = csv::WriterBuilder::new().has_headers(false).from_writer(Vec::new());
@@ -25,6 +27,7 @@ wtr.serialize(
         list: vec![-1, 1],
         matrix: vec![vec![-1, 1], vec![1, -1]],
         image_size: Some((16, 1024)),
+        geo: Some((84.99, -135.00)),
     }
 ).unwrap();
 wtr.serialize(
@@ -32,10 +35,11 @@ wtr.serialize(
         list: vec![],
         matrix: vec![],
         image_size: None,
+        geo: None,
     }
 ).unwrap();
 let s = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
-assert_eq!(s, "-1_1,-1_1|1_-1,16x1024\n,,\n");
+assert_eq!(s, "-1_1,-1_1|1_-1,16x1024,84.99;-135\n,,,\n");
 ```
 
 ## Contributing

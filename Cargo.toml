@@ -4,7 +4,7 @@ edition = "2021"
 license = "MIT"
 name = "serde-csv-extra"
 repository = "https://github.com/imbolc/serde-csv-extra"
-version = "0.1.0"
+version = "0.2.0"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
